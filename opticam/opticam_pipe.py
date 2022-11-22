@@ -217,17 +217,13 @@ class Reduction:
         if not os.path.isdir(self.workdir+self.name+'_files/'):
             os.system('mkdir '+self.workdir+self.name+'_files/')
         fln = self.flns[number].split('/')[-1]
-#<<<<<<< HEAD
-#
+
 #        print(fln)
         if fln[-3:] == 'its':
             fl1 = self.workdir+self.catalogue+fln.split(".fits")[0]+"_cat.fits"
         else:
             fl1 = self.workdir+self.catalogue+fln.split(".fit")[0]+"_cat.fits"
-#        fl1 = self.workdir+self.savedir+fln.split(".fits")[0]+"_cat.fits"
-#=======
-#        fl1 = self.workdir+self.catalogue+fln.split(".fits")[0]+"_cat.fits"
-#>>>>>>> cde02a02d08f9c79090f6aacc7062daf6e4f0152
+
         fl2 = self.workdir+self.rawdata+fln
         #print(fl1)
 
