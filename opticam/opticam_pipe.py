@@ -478,8 +478,9 @@ class Reduction:
                 #this is the size of the aperture in arcsec
                 aper_size = pixscale * self.sizes[self.aper_ind]
                 #plt.title('Airmass: {:.2f} SEEING: {:.2f} MAG aper: {:.2f} +/- {:.2f}, aper: {:.2f} arcsec'.format(airmass,seeing,m_pl[src_idx],em_pl[src_idx],aper_size))
-                plt.title('Airmass: {:.2f} SEEING: {:.2f} Flux aper: {:.2e} +/- {:.2e}, aper: {:.2f} arcsec'.format(airmass,seeing,m_pl[src_idx],em_pl[src_idx],aper_size))
-                
+                try:plt.title('Airmass: {:.2f} SEEING: {:.2f} Flux aper: {:.2e} +/- {:.2e}, aper: {:.2f} arcsec'.format(airmass,seeing,m_pl[src_idx],em_pl[src_idx],aper_size))
+                except:
+                    plt.title('ERROR with this frame')
                 #return src_idx
                 gc.savefig(self.workdir+self.name+'_files/fov{:1.0f}.jpg'.format(k))
                 print(k)
@@ -562,6 +563,7 @@ class Reduction:
             ccd_pixscale =0.1661
         else:
             ccd_pixscale = 0.14
+        
         
         for i,flname in enumerate(self.flns[:]):
             flnt = flname.split('/')[-1]
@@ -748,7 +750,8 @@ class Reduction:
                                  'mag_PETRO': mag_PETRO[0][ss][pp][jj],
                                  'mag_err_PETRO': mag_PETRO_err[0][ss][pp][jj],
                                  'exptime': exptime,
-                                 'airmass': airmass
+                                 'airmass': airmass,
+                                 'seeing':seeing
                                  }
                                 
                             #print()
