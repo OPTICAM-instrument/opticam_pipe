@@ -129,7 +129,7 @@ class Analysis:
         print("Target id: {}, \nNum detected Epochs: {}, \nNum of valid comparison stars: {}".format(self.target_id,self.n_target.array[0],self.n_comp_stars))
         
         #other variables we use 
-        self.path_diff_phot = self.name+'_files/'+self.name+self.marker+'_diff_photo' 
+        self.path_diff_phot = self.workdir+self.name+'_files/'+self.name+self.marker+'_diff_photo' 
         
         
 
@@ -156,11 +156,11 @@ class Analysis:
             m = [x in select+[self.target_id] for x in self.raw_data.id_apass]
             data_phot = self.raw_data[m].copy()
         
-        elif not isinstance(ignore, type(None)):
+        if not isinstance(ignore, type(None)):
             m = np.array([not x in ignore for x in self.raw_data.id_apass]) | np.array( [x in [self.target_id] for x in self.raw_data.id_apass])
             data_phot = self.raw_data[m].copy()
             
-        else:
+        if  isinstance(ignore, type(None)) and isinstance(select,type(None)):
             data_phot = self.raw_data.copy()
             
         self.data_phot =  data_phot
@@ -287,7 +287,7 @@ class Analysis:
             self.df_phot.to_pickle(self.path_diff_phot+'.pkl')
             
         #now we get the header from the other file
-        ref_t = Table.read(self.name+'_files/'+self.name+self.marker+'_photo.fits')
+        ref_t = Table.read(self.workdir+self.name+'_files/'+self.name+self.marker+'_photo.fits')
         
         save_t = Table.from_pandas(self.df_phot)
         save_t.meta = self.df_phot_meta

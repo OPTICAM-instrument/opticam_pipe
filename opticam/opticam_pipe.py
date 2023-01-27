@@ -71,6 +71,9 @@ class Reduction:
             self.workdir = './'
         else:
             self.workdir = workdir
+            if not os.path.isdir(self.workdir):
+                from pathlib import Path
+                os.makedirs(self.workdir, exist_ok=True)
         if catalogue is None: 
             self.catalogue = 'catalogues/'
         else:
@@ -108,8 +111,8 @@ class Reduction:
                 self.config_fl_name = self.config_fl_name.split('.')[0]+'_edit.sex'
                 self.edit_sex_param(self.config_fl_name, ['PHOT_APERTURES'], [size])
                 
-        self.path_ref_list = False #inicializing the reference stars list
-        
+        ###self.path_ref_list = False #inicializing the reference stars list
+        self.path_ref_list = self.workdir+self.name+'_files/'+self.name+self.marker+'_ref_stars.csv'
         self.rule = rule
         self.marker = '_C'+rule.split('C')[1][0]
         self.flns = self.get_files(self.rule)
@@ -586,7 +589,11 @@ class Reduction:
                 try: mjd_t = fits.getval(flname,"GPSTIME",0)[:-5]
                 except: mjd_t = fits.getval(flname,"UT",0)
                 mjd_t = mjd_t.replace(' ', 'T')
-                mjd = Time(mjd_t, format='fits', scale='utc').mjd
+                #
+                try: mjd = Time(mjd_t, format='fits', scale='utc').mjd
+                except: #hotfix for new latest software version 
+                    mjd_t =  fits.getval(flname,"DATE-OBS",0)+'T'+fits.getval(flname,"UT",0)
+                    mjd = Time(mjd_t, format='fits', scale='utc').mjd
                 airmass = fits.getval(flname,"AIRMASS",0)
                 naxis1 = fits.getval(flname,"NAXIS1",0)
                 naxis2 = fits.getval(flname,"NAXIS2",0)
@@ -796,14 +803,14 @@ class Reduction:
                 else: header_flag = False
                 
                 if save_output & save_standards:
-                    sta.to_csv(self.name+'_files/'+self.photo_file+".csv")
-                    sta.to_pickle(self.name+'_files/'+self.photo_file+".pkl")
+                    sta.to_csv(self.workdir+self.name+'_files/'+self.photo_file+".csv")
+                    sta.to_pickle(self.workdir+self.name+'_files/'+self.photo_file+".pkl")
                     
                     t = Table.from_pandas(sta)
                     t.meta = sta.meta
-                    t.write(self.name+'_files/'+self.photo_file+".fits",overwrite=True)
+                    t.write(self.workdir+self.name+'_files/'+self.photo_file+".fits",overwrite=True)
                     
-                    print('Files saved in '+self.name+'_files/'+self.photo_file)
+                    print('Files saved in '+self.workdir+self.name+'_files/'+self.photo_file)
                     
                   
                 
