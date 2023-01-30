@@ -65,8 +65,9 @@ class Reduction:
     '''
 #%%
     def __init__(self,workdir=None,rawdata = None,catalogue=None,
-                name=None,rule='*.fits',config_fl_name=None, measurement_id=None, size=None):
-
+                name=None,rule='*.fits',config_fl_name=None, measurement_id=None, size=None,vrb=True):
+        
+        self.vrb = vrb
         if workdir is None: 
             self.workdir = './'
         else:
@@ -112,11 +113,12 @@ class Reduction:
                 self.edit_sex_param(self.config_fl_name, ['PHOT_APERTURES'], [size])
                 
         ###self.path_ref_list = False #inicializing the reference stars list
-        self.path_ref_list = self.workdir+self.name+'_files/'+self.name+self.marker+'_ref_stars.csv'
+        
         self.rule = rule
         self.marker = '_C'+rule.split('C')[1][0]
         self.flns = self.get_files(self.rule)
         self._ROOT = os.path.abspath(os.path.dirname(__file__))
+        self.path_ref_list = self.workdir+self.name+'_files/'+self.name+self.marker+'_ref_stars.csv'
 #%%    
     def read_sex_param(self,fl_name):
         text = open(fl_name, 'r')
@@ -136,19 +138,38 @@ class Reduction:
         dictionary = pd.DataFrame(data = d, dtype ='str')
         return dictionary
 #%%
-    def edit_sex_param(self,fl_name, param, values):
-        default = self.read_sex_param('default.sex')
-        for i in range(len(param)):
-            ss = (default['Variables'] == param[i])
-            if param[i] == 'PHOT_APERTURES':
-                default['Values'][ss] += ',' + str(values[i])
-            else:
-                default['Values'][ss] = values[i]
-            if all(ss == False):
-                d = {'Variables': [param[i]], 'Values': [values[i]]}
-                d = pd.DataFrame(data = d, dtype ='str')
-                default = pd.concat([default,d], ignore_index=True)
+    def edit_sex_param(self, param, values, overwrite=False):
+        
+        fl_name = self.workdir+self.config_fl_name
+        if not Path(fl_name).exists() or overwrite:
+            sext_def= self._ROOT+'/sextractor_defaults/*'
+            os.system('cp '+sext_def+' '+self.workdir)
+            if self.vrb:
+                print('generating default sextractor files')
+            
+            
+            
+        default = self.read_sex_param(fl_name)
+        
+        #self.confg_file= default
+        
+        for i,par in enumerate(param):
+            default['Values'][default.Variables == par] = values[i]
         np.savetxt(fl_name,default.values,fmt='%s', delimiter='\t')
+        
+        if self.vrb: print('default params edited')
+            
+        #for i in range(len(param)):
+        #    ss = (default['Variables'] == param[i])
+        #    if param[i] == 'PHOT_APERTURES':
+        #        default['Values'][ss] += ',' + str(values[i])
+        #    else:
+        #        default['Values'][ss] = values[i]
+        #    if all(ss == False):
+        #        d = {'Variables': [param[i]], 'Values': [values[i]]}
+        #        d = pd.DataFrame(data = d, dtype ='str')
+        #        default = pd.concat([default,d], ignore_index=True)
+        #np.savetxt(fl_name,default.values,fmt='%s', delimiter='\t')
         return    
     
 #%%%
@@ -171,8 +192,16 @@ class Reduction:
         aperture photometry and create a catalogue of 
         stars for each file.
         """
-        sext_def= self._ROOT+'/sextractor_defaults/*'
-        os.system('cp '+sext_def+' '+self.workdir)
+        
+        fl_name_conf = self.workdir+self.config_fl_name
+        if not Path(fl_name_conf).exists():
+            sext_def= self._ROOT+'/sextractor_defaults/*'
+            os.system('cp '+sext_def+' '+self.workdir)
+            if self.vrb:
+                print('generating default sextractor files') 
+        else:
+            if self.vrb: print('using existing sextractor files')
+                
         if not os.path.isdir(self.workdir+self.catalogue):
             os.system('mkdir -p '+self.workdir+self.catalogue)
 
@@ -200,7 +229,7 @@ class Reduction:
                 except:
                     gain = 1.0
 
-                sex_out = "sextractor temp_sextractor_file.fits  -c "+self.config_fl_name+" -CATALOG_NAME "+ \
+                sex_out = "sextractor temp_sextractor_file.fits  -c "+fl_name_conf+" -CATALOG_NAME "+ \
                           cat_fln+" -GAIN "+str(gain)
                 os.system(sex_out)
                 print(cat_fln)

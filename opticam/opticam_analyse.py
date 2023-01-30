@@ -237,6 +237,7 @@ class Analysis:
             for j,id_comp in enumerate(data_epoch_comp.id_apass):
                 #for the first iteration we create the dictionary fields
                 if i == 0:
+                    print(j,id_comp)
                     df_dict[f'flux_{j+1}']=[]
                            
                     df_meta[f'comp_id_{j+1}']=int(id_comp)
