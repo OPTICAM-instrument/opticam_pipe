@@ -192,8 +192,12 @@ class Reduction:
         aperture photometry and create a catalogue of 
         stars for each file.
         """
+        current_dir = os.getcwd()
         
-        fl_name_conf = self.workdir+self.config_fl_name
+        os.chdir(self.workdir)
+        
+        print(os.getcwd())
+        fl_name_conf = self.config_fl_name
         if not Path(fl_name_conf).exists():
             sext_def= self._ROOT+'/sextractor_defaults/*'
             os.system('cp '+sext_def+' '+self.workdir)
@@ -202,22 +206,24 @@ class Reduction:
         else:
             if self.vrb: print('using existing sextractor files')
                 
-        if not os.path.isdir(self.workdir+self.catalogue):
-            os.system('mkdir -p '+self.workdir+self.catalogue)
+        if not os.path.isdir(self.catalogue):
+            os.system('mkdir -p '+self.catalogue)
 
-        for i,fln in enumerate(self.flns[:]):
+        for i,fln in enumerate(np.sort(glob.glob(self.rawdata+self.rule))):
             if fln[-4:] == "fits":
                 cat_fln = fln.split(".fits")[0]+"_cat.fits"
             elif fln[-3:] == "fit":
                 cat_fln = fln.split(".fit")[0]+"_cat.fits"
-            exists = os.path.isfile(self.workdir+self.catalogue+ \
+            exists = os.path.isfile(self.catalogue+ \
                     (cat_fln).split("/")[-1])
             
             if not exists:
                 os.system("rm temp_sextractor_file.fits")
 
                 hdul = fits.open(fln)
-                hdu1 = fits.PrimaryHDU(data=hdul[0].data)
+                #hotfix for broken files
+                try: hdu1 = fits.PrimaryHDU(data=hdul[0].data)
+                except: continue
                 hdu1.header = hdul[0].header
                 new_hdul = fits.HDUList([hdu1])
                 new_hdul.writeto('temp_sextractor_file.fits', overwrite=True)
@@ -229,19 +235,21 @@ class Reduction:
                 except:
                     gain = 1.0
 
-                sex_out = "sextractor temp_sextractor_file.fits  -c "+fl_name_conf+" -CATALOG_NAME "+ \
+                sex_out = "sextractor temp_sextractor_file.fits  -c "+self.config_fl_name+" -CATALOG_NAME "+ \
                           cat_fln+" -GAIN "+str(gain)
                 os.system(sex_out)
                 print(cat_fln)
                 
                 print("mv "+cat_fln+\
-                            " "+self.workdir+self.catalogue+".")
+                            " "+self.catalogue+".")
                 os.system("mv "+cat_fln+\
-                             " "+self.workdir+self.catalogue+".")
+                             " "+self.catalogue+".")
 
                 print("{:4.0f} / {:4.0f} -- {}".format(i+1,len(self.flns),fln))
             else:
                 print("{:4.0f} / {:4.0f} -- It exists!".format(i+1,len(self.flns)))
+                
+        os.chdir(current_dir)
 
 #%%
     def creat_ref_list(self,number=0):
@@ -275,7 +283,7 @@ class Reduction:
         gc.show_circles(data['X_IMAGE'], data['Y_IMAGE'], radius=13,color='g',lw=3)
 
         for i in range(data['X_IMAGE'].size):
-            plt.text(data['X_IMAGE'][i]+10, data['Y_IMAGE'][i]+10,data['NUMBER'][i],fontsize='large')
+            plt.text(data['X_IMAGE'][i]+10, data['Y_IMAGE'][i]+10,data['NUMBER'][i],fontsize=15,color='blue')
         
         plt.show()
         gc.savefig(self.workdir+self.name+'_files/'+self.name+self.marker+'_fov.pdf')
@@ -321,7 +329,7 @@ class Reduction:
             target_id = 1
                 
 
-        vrb = True #verbose, Default=True
+        vrb = self.vrb 
         save_output = True
 
 
@@ -384,7 +392,11 @@ class Reduction:
                 try: mjd_t = fits.getval(flname,"GPSTIME",0)[:-5]
                 except: mjd_t = fits.getval(flname,"UT",0)
                 mjd_t = mjd_t.replace(' ', 'T')
-                mjd = Time(mjd_t, format='fits', scale='utc').mjd
+                #hotfix 
+                try: mjd = Time(mjd_t, format='fits', scale='utc').mjd
+                except: #hotfix for new latest software version 
+                    mjd_t =  fits.getval(flname,"DATE-OBS",0)+'T'+fits.getval(flname,"UT",0)
+                    mjd = Time(mjd_t, format='fits', scale='utc').mjd
                 airmass = fits.getval(flname,"AIRMASS",0)
                 naxis1 = fits.getval(flname,"NAXIS1",0)
                 naxis2 = fits.getval(flname,"NAXIS2",0)
@@ -541,7 +553,7 @@ class Reduction:
 
         
     
-    def photometry(self,PIX_EDGE = 30, vrb = True, save_output = True,save_standards = True,save_target = True):
+    def photometry(self,PIX_EDGE = 30, vrb = None , save_output = True,save_standards = True,save_target = True):
         """
         Creates a single output file from all the catalogues. 
         Cross-matches the positions of each catalogue and assigns
@@ -556,11 +568,7 @@ class Reduction:
             comment="#")
         apass.set_index('id')
 
-         #verbose, Default=True
-        
-
-        
-        
+        if vrb == None: vrb = self.vrb
 
         
         
@@ -640,7 +648,9 @@ class Reduction:
                     
                 
                 #creating a mask to elimitate 0 FWHM data
-                msk = np.argwhere(fits.getdata(cat_flname).FWHM_IMAGE >0 ).T[0]
+                #hotfix for bad data
+                try: msk = np.argwhere(fits.getdata(cat_flname).FWHM_IMAGE >0 ).T[0]
+                except: continue
                 PSF_FWHM = np.median(fits.getdata(cat_flname).FWHM_IMAGE[msk])
                 try:
                     seeing = fits.getval(flname,"L1FWHM",0)

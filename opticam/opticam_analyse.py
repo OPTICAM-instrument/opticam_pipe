@@ -109,9 +109,28 @@ class Analysis:
         self.comp_stars_id = self.df_ref_stars.loc[self.df_ref_stars.n >= self.df_ref_stars.n[self.n_target.index[0]], 'id']
         self.n_comp_stars = len(self.comp_stars_id)
         
-        print('Removing all targets with less detections than target object\n\n')
-        m = [x in self.comp_stars_id.array for x in self.raw_data.id_apass]
-        self.raw_data = self.raw_data[m]
+        ### depreciated ###
+        #print('Removing all targets with less detections than target object\n\n')
+        #m = [x in self.comp_stars_id.array for x in self.raw_data.id_apass]
+        #self.raw_data = self.raw_data[m]
+        ##################
+        
+        # we select the target epochs
+        self.target_epochs = self.raw_data.loc[self.raw_data.id_apass == self.target_id].epoch
+        #
+        tmp_dict = {}
+        for idx in self.df_ref_stars.id:
+            tmp_dict[f'{idx}']=0
+        
+        
+        ep_count = len(self.target_epochs)
+        for i, ep in enumerate(self.target_epochs):
+            to_append = self.raw_data.loc[self.raw_data.epoch == ep].id_apass.array
+            
+            for idx in to_append:
+                tmp_dict[f'{idx}'] +=1
+            
+        self.df_count = tmp_dict
 
         self.all_stars = np.unique(self.raw_data.id_apass)
 
@@ -125,8 +144,14 @@ class Analysis:
         self.M_err = self.raw_data['mag_err_'+self.measurement_id]
         self.F = self.raw_data['flux_'+self.measurement_id]
         self.F_er = self.raw_data['flux_err_'+self.measurement_id]
-        print("Num detected Stars: {}, \nAll Epochs: {}\n".format(self.n_ref_stars,self.epochs.size))
-        print("Target id: {}, \nNum detected Epochs: {}, \nNum of valid comparison stars: {}".format(self.target_id,self.n_target.array[0],self.n_comp_stars))
+        print("Num stars in the catalogue: {}, \nAll Epochs: {}\n".format(self.n_ref_stars,self.epochs.size))
+        #print("Target id: {}, \nNum detected Epochs: {}, \nNum of valid comparison stars: {}".format(self.target_id,self.n_target.array[0],self.n_comp_stars))
+        print("Target id: {}, \nNum detected Epochs: {}".format(self.target_id,self.n_target.array[0]))
+        print('\nDetections count when target is detected')
+        print('id: count')
+        print('---------')
+        for key in self.df_count:
+            print(f'{key}:',self.df_count[key])
         
         #other variables we use 
         self.path_diff_phot = self.workdir+self.name+'_files/'+self.name+self.marker+'_diff_photo' 
@@ -167,9 +192,27 @@ class Analysis:
         
         
         
-        
+        #return 
         #### Only in those that the target was also detected
         target_epochs = data_phot.loc[data_phot.id_apass == self.target_id, 'epoch']
+        
+        #here we get the comparison stars epochs 
+        msk_target_id = data_phot.id_apass == self.target_id
+        data_comp = data_phot[~msk_target_id]
+        msk_target_epochs = [] #we will use this one to filter the epochs whre the selected comparisons doesn't appar
+        
+        for epo in target_epochs:
+            m = True
+            for j,id_comp in enumerate(np.unique(data_comp.id_apass)):
+                mask_comp_epochs = data_comp.id_apass == id_comp #we filter by comp id
+                mm = epo in data_comp['epoch'][mask_comp_epochs].array #check if the target epoch is listed in the comparison epochs
+                m = m & mm #filtering logic
+                
+            msk_target_epochs.append(m)
+        print(len(target_epochs) - len(target_epochs[msk_target_epochs]), 'epoch NOT matched for all selected stars')
+              
+        target_epochs = target_epochs[msk_target_epochs]
+        
         
         df_dict = {'flname':[],
                     'exptime':[],

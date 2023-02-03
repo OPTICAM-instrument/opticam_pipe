@@ -16,14 +16,14 @@ FLAG_IMAGE	flag.fits	# filename for an input FLAG-image
 DETECT_MINAREA	9		# minimum number of pixels above threshold
 
 THRESH_TYPE	RELATIVE	# threshold type: RELATIVE (in sigmas)
-DETECT_THRESH	5		# <sigmas>
-ANALYSIS_THRESH	5		# <sigmas>
+DETECT_THRESH	3		# <sigmas>
+ANALYSIS_THRESH	3		# <sigmas>
 
 FILTER		N		# apply filter for detection ("Y" or "N")?
 FILTER_NAME	default.conv	# name of the file containing the filter
 
 DEBLEND_NTHRESH	32		# Number of deblending sub-thresholds
-DEBLEND_MINCONT	0.005		# Minimum contrast parameter for deblending
+DEBLEND_MINCONT	0.1		# Minimum contrast parameter for deblending
 
 CLEAN		Y		# Clean spurious detections? (Y or N)?
 CLEAN_PARAM	1.0		# Cleaning efficiency
