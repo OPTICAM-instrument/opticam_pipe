@@ -660,6 +660,8 @@ class Reduction:
                 if vrb: print("Seeing = {:7.3f} arcsec".format(seeing))
                 if vrb: print("PSF FWHM = {:7.3f} arcsec".format(PSF_FWHM*pixscale))
                 data = fits.getdata(cat_flname)
+                
+                return data
 
 
                 #### Align images #####
