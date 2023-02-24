@@ -67,7 +67,7 @@ class Analysis:
         default = 'APER'. keyword for sextractor flux measurement, see sextractor documentation for more info. 
     '''
 
-    def __init__(self,target_id, workdir=None,catalogue = None,name=None,rule = None, measurement_id='APER'):
+    def __init__(self,target_id, workdir=None,catalogue = None,name=None,rule = None, measurement_id='APER_1'):
         
         self.target_id = target_id #this is the target id from the reference image and the catalogue file
         self.df_phot = False #here we set the dataframe for the photometry to do checks in the methods later

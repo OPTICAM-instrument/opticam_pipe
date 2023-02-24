@@ -65,7 +65,7 @@ class Reduction:
     '''
 #%%
     def __init__(self,workdir=None,rawdata = None,catalogue=None,
-                name=None,rule='*.fits',config_fl_name=None, measurement_id=None, size=None,vrb=True):
+                name=None,rule='*.fits',config_fl_name=None, measurement_id=None, sizes=None,vrb=True):
         
         self.vrb = vrb
         if workdir is None: 
@@ -99,18 +99,22 @@ class Reduction:
         else:
             self.measurement_id = measurement_id
             
-        self.sizes = [3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33]
-        if measurement_id == 'APER' and size is None:
+        self.sizes = np.array([3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33])
+        if isinstance(sizes,type(None)):
             print('No apperture size imputed, setting to default (16 pixels)')
-            self.aper_ind = 13
-        if measurement_id == 'APER' and size is not None:
+            self.aper_ind = np.argwhere(self.sizes==16)[0]
+        else:
+            #here we implement several apertures
+            self.aper_ind = [np.argwhere(np.array(self.sizes)==x)[0][0] for x in sizes]
             
-            if size in self.sizes:    
-                self.aper_ind = self.sizes.index(size)
-            else: #THIS NEED TO VE REVIEWED
-                self.aper_ind = -1
-                self.config_fl_name = self.config_fl_name.split('.')[0]+'_edit.sex'
-                self.edit_sex_param(self.config_fl_name, ['PHOT_APERTURES'], [size])
+        #if measurement_id == 'APER' and size is not None:
+        #   
+        #   if size in self.sizes:    
+        #       self.aper_ind = self.sizes.index(size)
+        #   else: #THIS NEED TO VE REVIEWED
+        #       self.aper_ind = -1
+        #       self.config_fl_name = self.config_fl_name.split('.')[0]+'_edit.sex'
+        #       self.edit_sex_param(self.config_fl_name, ['PHOT_APERTURES'], [size])
                 
         ###self.path_ref_list = False #inicializing the reference stars list
         
@@ -120,6 +124,49 @@ class Reduction:
         self._ROOT = os.path.abspath(os.path.dirname(__file__))
         self.path_ref_list = self.workdir+self.name+'_files/'+self.name+self.marker+'_ref_stars.csv'
 #%%    
+
+        #setting the pixelscale in the header
+        if 'C1' in self.rule:
+            self.ccd_pixscale = 0.1397
+        elif 'C2' in self.rule:
+            self.ccd_pixscale = 0.1406
+        elif 'C3' in self.rule:
+            self.ccd_pixscale =0.1661
+        else:
+            self.ccd_pixscale = 0.14
+            
+        
+    def get_optimal_aperture(self):
+        
+        print('estimated FWHM arcseconds')
+        print('mean:',np.mean(self.fwhm_image))
+        print('median:',np.median(self.fwhm_image))
+        print('min:',np.min(self.fwhm_image))
+        print('max:',np.max(self.fwhm_image))
+        print('std:',np.std(self.fwhm_image))
+        print('\n\n')
+        print('estimated FWHM pixels')
+        print('mean:',np.mean(self.fwhm_image_pix))
+        print('median:',np.median(self.fwhm_image_pix))
+        print('min:',np.min(self.fwhm_image_pix))
+        print('max:',np.max(self.fwhm_image_pix))
+        print('std:',np.std(self.fwhm_image_pix))
+        print('\n\n')
+        print('binning:',np.unique(self.binning))
+        print('ccd pixel scale:',self.ccd_pixscale)
+        print('\n\n')        
+        print('available apertures in pixels')
+        print(self.sizes)
+        
+    def set_apertures(self,sizes):
+        """
+        Input:  
+            sizes: array like of int
+                aperture diameters in pixels 
+        """
+        print('updating aperture diameters (in pixels) to be saved')
+        self.aper_ind = [np.argwhere(np.array(self.sizes)==x)[0][0] for x in sizes]
+        
     def read_sex_param(self,fl_name):
         text = open(fl_name, 'r')
         lines = [line for line in text.readlines() if line.strip()]
@@ -196,6 +243,10 @@ class Reduction:
         
         os.chdir(self.workdir)
         
+        self.binning = []
+        self.fwhm_image = []
+        self.fwhm_image_pix = []
+        
         print(os.getcwd())
         fl_name_conf = self.config_fl_name
         if not Path(fl_name_conf).exists():
@@ -234,18 +285,38 @@ class Reduction:
                     gain = fits.getval(fln,"GAIN",0)
                 except:
                     gain = 1.0
+                    
+                try:
+                    self.binning.append(fits.getval(fln,"BINNING",0))
+                    bnn = float(self.binning[-1].split('x')[0])
+                except:
+                    bnn = 1.
+                    print("WARNING: BINNING NOT FOUND")
 
                 sex_out = "sextractor temp_sextractor_file.fits  -c "+self.config_fl_name+" -CATALOG_NAME "+ \
                           cat_fln+" -GAIN "+str(gain)
                 os.system(sex_out)
                 print(cat_fln)
                 
+                #saving the estimated fwhm of the image
+                msk = np.argwhere(fits.getdata(cat_fln).FWHM_IMAGE >0 ).T[0]
+                PSF_FWHM_pix = np.median(fits.getdata(cat_fln).FWHM_IMAGE[msk])
+                PSF_FWHM = PSF_FWHM_pix*self.ccd_pixscale * bnn
+                
+                self.fwhm_image.append(PSF_FWHM)
+                self.fwhm_image_pix.append(PSF_FWHM_pix)
+                ###
+                
+                #moving the cat file 
                 print("mv "+cat_fln+\
                             " "+self.catalogue+".")
                 os.system("mv "+cat_fln+\
                              " "+self.catalogue+".")
 
                 print("{:4.0f} / {:4.0f} -- {}".format(i+1,len(self.flns),fln))
+                
+                
+                
             else:
                 print("{:4.0f} / {:4.0f} -- It exists!".format(i+1,len(self.flns)))
                 
@@ -361,14 +432,9 @@ class Reduction:
     
         print("OPTICAM - Movie curve generator")
         
-        if 'C1' in self.rule:
-            ccd_pixscale = 0.1397
-        elif 'C2' in self.rule:
-            ccd_pixscale = 0.1406
-        elif 'C3' in self.rule:
-            ccd_pixscale =0.1661
-        else:
-            ccd_pixscale = 0.14
+        ccd_pixscale = self.ccd_pixscale
+        
+
         
         for i,flname in enumerate(self.flns[:]):
             k=i
@@ -660,8 +726,7 @@ class Reduction:
                 if vrb: print("Seeing = {:7.3f} arcsec".format(seeing))
                 if vrb: print("PSF FWHM = {:7.3f} arcsec".format(PSF_FWHM*pixscale))
                 data = fits.getdata(cat_flname)
-                
-                return data
+              
 
 
                 #### Align images #####
@@ -781,10 +846,6 @@ class Reduction:
                                  'flux_err_ISOCOR': flux_ISOCOR_err[0][ss][pp][jj],
                                  'mag_ISOCOR': mag_ISOCOR[0][ss][pp][jj],
                                  'mag_err_ISOCOR': mag_ISOCOR_err[0][ss][pp][jj],
-                                 'flux_APER': flux_APER[0,:,self.aper_ind][ss][pp][jj],
-                                 'flux_err_APER': flux_APER_err[0,:,self.aper_ind][ss][pp][jj],
-                                 'mag_APER': mag_APER[0,:,self.aper_ind][ss][pp][jj],
-                                 'mag_err_APER': mag_APER_err[0,:,self.aper_ind][ss][pp][jj],
                                  'flux_AUTO': flux_AUTO[0][ss][pp][jj],
                                  'flux_err_AUTO': flux_AUTO_err[0][ss][pp][jj],
                                  'mag_AUTO': mag_AUTO[0][ss][pp][jj],
@@ -801,6 +862,14 @@ class Reduction:
                                  'airmass': airmass,
                                  'seeing':seeing
                                  }
+                            
+                            #here we save the different apertures:
+                            for x, ap_ind in enumerate(self.aper_ind):
+                                #print(x,ap_ind)
+                                df3[id3][f'flux_APER_{x+1}']= flux_APER[0,:,ap_ind][ss][pp][jj]
+                                df3[id3][f'flux_err_APER_{x+1}']= flux_APER_err[0,:,ap_ind][ss][pp][jj]
+                                df3[id3][f'mag_APER_{x+1}']= mag_APER[0,:,ap_ind][ss][pp][jj]
+                                df3[id3][f'mag_err_APER_{x+1}']= mag_APER_err[0,:,ap_ind][ss][pp][jj]
                                 
                             #print()
                             id3 += 1
@@ -841,6 +910,14 @@ class Reduction:
                     header_flag = True
                     sta.meta= ccd.meta[6:]
                     sta.meta['Camera'] = int(self.marker[-1])
+                    
+                    #saving number of pixels in the metadata 
+                    for x, ap_ind in enumerate(self.aper_ind):
+                        sta.meta[f'APER_{x+1}_d_pix'] = self.sizes[ap_ind]
+                        #in arcsec
+                        bnn = float(np.unique(self.binning)[-1].split('x')[0])
+                        sta.meta[f'APER_{x+1}_d_pix'] = self.sizes[ap_ind] * bnn * self.ccd_pixscale
+                        
                 else: header_flag = False
                 
                 if save_output & save_standards:
